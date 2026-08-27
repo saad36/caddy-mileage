@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827"><link rel="manifest" href="manifest.webmanifest">
+<title>Lease Mileage Tracker</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--bad:#dc2626;--good:#15803d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:900px;margin:auto;padding:18px 14px 44px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}h1{font-size:25px;margin:0}.sub,.small{color:var(--muted);font-size:13px}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 2px 10px #00000008}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.metric .label{color:var(--muted);font-size:13px}.metric b{display:block;font-size:29px;margin-top:3px}.status{font-size:19px;font-weight:750}.bad{color:var(--bad)}.good{color:var(--good)}.warn{color:#b45309}.backup{display:flex;justify-content:space-between;align-items:center;gap:10px}.backup strong{font-size:14px}.bar{height:11px;background:#edf0f4;border-radius:20px;overflow:hidden;margin:12px 0}.fill{height:100%;background:var(--accent);border-radius:20px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.stat{background:#f8fafc;border-radius:12px;padding:12px}.stat b{display:block;font-size:17px}.stat span{font-size:12px;color:var(--muted)}h2{font-size:17px;margin:0 0 12px}.form{display:grid;grid-template-columns:1fr 1fr auto;gap:9px}.input{width:100%;padding:12px;border:1px solid var(--line);border-radius:11px;font-size:16px;background:white}button{font:inherit}.primary,.preset{border:1px solid var(--line);background:white;border-radius:11px;padding:10px 13px;font-weight:650;cursor:pointer}.primary{background:var(--text);color:white;border-color:var(--text)}.presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 5px;border-bottom:1px solid var(--line);font-size:14px}th{color:var(--muted)}.danger{border:0;background:none;color:var(--muted);cursor:pointer}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.note{padding:11px 12px;border-radius:11px;background:#f8fafc;margin-top:12px}.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;padding:16px}.modal.show{display:flex}.modalbox{background:white;border-radius:18px;padding:20px;width:min(520px,100%)}.fields{display:grid;gap:10px}.chart{width:100%;height:190px;margin-top:8px}canvas{width:100%;height:190px}
+@media(max-width:650px){.form{grid-template-columns:1fr 1fr}.form .primary{grid-column:1/-1}.stats{grid-template-columns:1fr 1fr}.stats .stat:last-child{grid-column:1/-1}.metric b{font-size:25px}}
+</style>
+</head>
+<body><main>
+<header class="top"><div><h1>🚗 Lease Mileage</h1><div class="sub" id="vehicleLine"></div></div><button class="preset" onclick="openSettings()">⚙️</button></header>
+
+<section class="grid">
+<div class="card metric"><div class="label">Current mileage</div><b id="current"></b><div class="small" id="asof"></div></div>
+<div class="card metric"><div class="label">Allowance remaining</div><b id="remaining"></b><div class="small" id="allowanceLine"></div></div>
+</section>
+
+<section class="card"><div id="pace" class="status"></div><div class="bar"><div class="fill" id="mileageBar"></div></div><div class="small" id="usedLine"></div></section>
+
+<section class="card"><h2>Lease progress</h2><div class="stats">
+<div class="stat"><b id="monthsRemaining"></b><span>months remaining</span></div>
+<div class="stat"><b id="daysRemaining"></b><span>days remaining</span></div>
+<div class="stat"><b id="leasePercent"></b><span>lease elapsed</span></div>
+</div><div class="bar"><div class="fill" id="leaseBar"></div></div><div class="small" id="dates"></div></section>
+
+<section class="card"><h2>Monthly mileage budget</h2><div class="stats">
+<div class="stat"><b id="monthlyTarget"></b><span>target per month</span></div>
+<div class="stat"><b id="monthUsed"></b><span>used this month</span></div>
+<div class="stat"><b id="monthRemaining"></b><span>room until month-end</span></div>
+</div><div class="note small" id="monthlyNote"></div></section>
+
+<section class="card"><h2>What matters now</h2><div class="stats">
+<div class="stat"><b id="safeDaily"></b><span>km/day available</span></div>
+<div class="stat"><b id="expected"></b><span>expected mileage today</span></div>
+<div class="stat"><b id="projected"></b><span>projected at lease end</span></div>
+</div><div class="note small" id="projectionNote"></div></section>
+
+<section class="card"><h2>Potential mileage charge</h2><div class="stats">
+<div class="stat"><b id="rate"></b><span>excess rate</span></div>
+<div class="stat"><b id="overage"></b><span>projected excess</span></div>
+<div class="stat"><b id="cost"></b><span>projected charge</span></div>
+</div><div class="small note">The charge is only a projection. Your signed lease agreement controls the actual excess-kilometre rate.</div></section>
+
+<section class="card"><h2>What if?</h2><div class="small">Choose a future driving rate for the rest of the lease.</div>
+<div style="display:flex;gap:12px;align-items:center;margin-top:14px"><input id="slider" type="range" min="0" max="200" value="64" style="flex:1"><input id="whatInput" class="input" type="number" min="0" max="500" value="64" style="width:105px"><span>km/day</span></div>
+<div class="stats" style="margin-top:12px"><div class="stat"><b id="whatEnd"></b><span>lease-end mileage</span></div><div class="stat"><b id="whatOver"></b><span>excess km</span></div><div class="stat"><b id="whatCost"></b><span>estimated charge</span></div></div>
+<div class="presets"><button class="preset" data-v="50">50 km/day</button><button class="preset" data-v="64">64 km/day</button><button class="preset" data-v="75">75 km/day</button><button class="preset" data-v="100">100 km/day</button><button class="preset" data-current>Current pace</button></div>
+</section>
+
+<section class="card"><h2>Add odometer reading</h2><div class="form"><input id="odo" class="input" type="number" min="1" placeholder="Odometer (km)"><input id="readDate" class="input" type="date"><button class="primary" id="addBtn">Add reading</button></div><div class="small note" id="saveStatus"></div></section>
+
+<section class="card backup"><div><strong>💾 Protect your mileage history</strong><div class="small">Your data stays on this device. Export a backup occasionally so you can restore it on another device.</div></div><button class="primary" onclick="exportData()">Export backup</button></section>
+
+<section class="card"><h2>Mileage history</h2><table><thead><tr><th>Date</th><th>Odometer</th><th>Since last</th><th></th></tr></thead><tbody id="history"></tbody></table><div class="actions"><button class="preset" onclick="exportData()">Export backup</button><label class="preset">Import backup<input id="importFile" type="file" accept="application/json" hidden></label></div></section>
+
+<section class="card"><h2>Mileage trend</h2><canvas id="chart" width="850" height="190"></canvas><div class="small">Your actual readings vs. the mileage path that would use the full allowance by lease end.</div></section>
+</main>
+
+<div class="modal" id="modal"><div class="modalbox"><h2>Lease settings</h2><div class="fields">
+<label>Vehicle<input id="sVehicle" class="input"></label><label>Lease start<input id="sStart" class="input" type="date"></label><label>Lease end<input id="sEnd" class="input" type="date"></label><label>Total allowance (km)<input id="sAllowance" class="input" type="number"></label><label>Excess mileage rate (CAD/km)<input id="sRate" class="input" type="number" step=".01"></label></div><div class="actions"><button class="preset" onclick="closeSettings()">Cancel</button><button class="primary" onclick="saveSettings()">Save</button></div></div></div>
+
+<script>
+const DB="LeaseMileageDB", STORE="state", KEY="main";
+const initial={vehicle:"My Vehicle",start:"2026-04-27",end:"2030-04-27",allowance:101847,rate:.20,readings:[{date:"2026-08-27",odo:16392}]};
+let data;
+
+function db(){return new Promise((resolve,reject)=>{let r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function load(){try{let d=await db();return await new Promise((res,rej)=>{let t=d.transaction(STORE,"readonly"),r=t.objectStore(STORE).get(KEY);r.onsuccess=()=>res(r.result||structuredClone(initial));r.onerror=()=>rej(r.error)})}catch(e){return JSON.parse(localStorage.getItem("leaseFallback")||"null")||structuredClone(initial)}}
+async function save(){try{let d=await db();await new Promise((res,rej)=>{let t=d.transaction(STORE,"readwrite");t.objectStore(STORE).put(data,KEY);t.oncomplete=res;t.onerror=()=>rej(t.error)});return true}catch(e){try{localStorage.setItem("leaseFallback",JSON.stringify(data));return true}catch(_){return false}}}
+const fmt=n=>Math.round(n).toLocaleString()+" km";
+const money=n=>"$"+Math.round(n).toLocaleString();
+const dt=s=>new Date(s+"T00:00:00");
+const nice=s=>dt(s).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+function calc(){
+ let rs=[...data.readings].sort((a,b)=>a.date.localeCompare(b.date)), last=rs[rs.length-1], now=dt(last.date), st=dt(data.start), en=dt(data.end);
+ let total=Math.max(1,(en-st)/86400000), elapsed=Math.max(0,(now-st)/86400000), days=Math.max(1,(en-now)/86400000), expected=data.allowance*Math.min(elapsed,total)/total;
+ let remain=Math.max(0,data.allowance-last.odo), safe=remain/days, daily=last.odo/Math.max(1,elapsed), projected=last.odo+daily*days, over=Math.max(0,projected-data.allowance);
+ let monthlyTarget=data.allowance/Math.max(1,Math.round(total/30.4375));
+ let monthStart=new Date(now.getFullYear(),now.getMonth(),1), nextMonth=new Date(now.getFullYear(),now.getMonth()+1,1);
+ let monthUsed=0;
+ rs.forEach((r,i)=>{let rd=dt(r.date); if(rd>=monthStart && rd<=now){let prev=rs[i-1]; monthUsed=Math.max(monthUsed, r.odo-(prev?prev.odo:0));}});
+ let monthEndTarget=data.allowance*Math.min(total,Math.max(0,(nextMonth-st)/86400000))/total;
+ let room=Math.max(0,monthEndTarget-last.odo);
+ return {rs,last,total,elapsed,days,expected,remain,safe,daily,projected,over,leasePct:Math.min(100,elapsed/total*100),months:Math.max(0,Math.round(days/30.4375)),monthlyTarget,monthUsed,room};
+}
+function render(){
+ let c=calc(); vehicleLine.textContent=data.vehicle+" • "+nice(data.start)+" → "+nice(data.end);
+ current.textContent=fmt(c.last.odo);asof.textContent="As of "+nice(c.last.date);remaining.textContent=fmt(c.remain);allowanceLine.textContent=fmt(data.allowance)+" total allowance";
+ let ahead=c.last.odo-c.expected;
+let ratio=c.expected>0?ahead/c.expected:0;
+let cls=ratio>0.15?"bad":ratio>0.05?"warn":"good";
+pace.textContent=(ratio>0.15?"🔴 ":ratio>0.05?"🟠 ":"🟢 ")+fmt(Math.abs(ahead))+(ahead>0?" ahead of pace":" under pace");pace.className="status "+cls;
+ mileageBar.style.width=Math.min(100,c.last.odo/data.allowance*100)+"%";usedLine.textContent=(c.last.odo/data.allowance*100).toFixed(1)+"% of allowance used.";
+ monthsRemaining.textContent=c.months+" months";daysRemaining.textContent=Math.round(c.days).toLocaleString();leasePercent.textContent=c.leasePct.toFixed(1)+"%";leaseBar.style.width=c.leasePct+"%";dates.textContent=nice(data.start)+" → "+nice(data.end);
+ safeDaily.textContent=c.safe.toFixed(1)+" km";expected.textContent=fmt(c.expected);projected.textContent=fmt(c.projected);
+monthlyTarget.textContent=fmt(c.monthlyTarget);monthUsed.textContent=fmt(c.monthUsed);monthRemaining.textContent=fmt(c.room);
+monthlyNote.textContent="Target is "+fmt(c.monthlyTarget)+" per month. Based on the lease pace, you have about "+fmt(c.room)+" of room before the end of this month.";
+ projectionNote.textContent=c.projected>data.allowance?"At your current average driving rate, you are projected to exceed the allowance.":"At your current average driving rate, you are projected to stay within the allowance.";
+ rate.textContent="$"+Number(data.rate).toFixed(2)+"/km";overage.textContent=fmt(c.over);cost.textContent=money(c.over*data.rate);
+ history.innerHTML=c.rs.slice().reverse().map((r,i,a)=>{let d=a[i+1]?r.odo-a[i+1].odo:null;return `<tr><td>${nice(r.date)}</td><td>${fmt(r.odo)}</td><td>${d==null?"—":fmt(d)}</td><td><button class="danger" onclick="removeReading('${r.date}',${r.odo})">✕</button></td></tr>`}).join("");
+ saveStatus.textContent="✓ Your data is saved on this device using IndexedDB. Use Export backup periodically for safekeeping.";
+ updateWhatIf(); draw();
+}
+function updateWhatIf(){
+ let c=calc(), v=Math.max(0,Number(whatInput.value)||0), p=c.last.odo+v*c.days, o=Math.max(0,p-data.allowance);
+ whatEnd.textContent=fmt(p);whatOver.textContent=fmt(o);whatCost.textContent=money(o*data.rate);slider.value=Math.min(200,v);
+}
+function setWhat(v){whatInput.value=v;updateWhatIf()}
+addBtn.onclick=async()=>{let odo=Number(document.getElementById("odo").value),date=document.getElementById("readDate").value;if(!odo||!date)return alert("Enter an odometer reading and date.");let max=Math.max(...data.readings.map(r=>r.odo));if(odo<max)return alert("New mileage must not be lower than your highest recorded reading.");data.readings.push({date,odo});if(!await save())alert("Could not save this reading.");document.getElementById("odo").value="";render()};
+async function removeReading(date,odo){if(confirm("Delete this reading?")){let i=data.readings.findIndex(r=>r.date===date&&r.odo===odo);if(i>=0)data.readings.splice(i,1);await save();render()}}
+slider.oninput=()=>{whatInput.value=slider.value;updateWhatIf()};whatInput.oninput=updateWhatIf;
+document.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>setWhat(b.dataset.v));
+document.querySelector("[data-current]").onclick=()=>setWhat(Math.round(calc().daily));
+function openSettings(){sVehicle.value=data.vehicle;sStart.value=data.start;sEnd.value=data.end;sAllowance.value=data.allowance;sRate.value=data.rate;modal.classList.add("show")}
+function closeSettings(){modal.classList.remove("show")}
+async function saveSettings(){data.vehicle=sVehicle.value||"My Vehicle";data.start=sStart.value;data.end=sEnd.value;data.allowance=Number(sAllowance.value)||0;data.rate=Number(sRate.value)||0;await save();closeSettings();render()}
+function exportData(){let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="lease-mileage-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+importFile.onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=async()=>{try{let x=JSON.parse(r.result);if(!x.readings||!x.allowance)throw 0;data=x;await save();render();alert("Backup imported.")}catch(_){alert("Invalid backup file.")}};r.readAsText(f)}
+function draw(){
+ let c=document.getElementById("chart"),x=c.getContext("2d"),w=c.width,h=c.height;
+ x.clearRect(0,0,w,h);
+ let rs=calc().rs,st=dt(data.start),en=dt(data.end),T=Math.max(1,(en-st)/86400000);
+ let max=Math.max(data.allowance,...rs.map(r=>r.odo),1)*1.08;
+ function pt(r){return {x:Math.max(0,Math.min(w,((dt(r.date)-st)/86400000)/T*w)),y:h-(r.odo/max*h)}}
+ x.strokeStyle="#d1d5db";x.lineWidth=2;x.beginPath();x.moveTo(0,h);x.lineTo(w,h-(data.allowance/max*h));x.stroke();
+ x.strokeStyle="#111827";x.lineWidth=3;x.beginPath();rs.forEach((r,i)=>{let q=pt(r);i?x.lineTo(q.x,q.y):x.moveTo(q.x,q.y)});x.stroke();
+ rs.forEach(r=>{let q=pt(r);x.fillStyle="#111827";x.beginPath();x.arc(q.x,q.y,4,0,Math.PI*2);x.fill()});
+ x.fillStyle="#6b7280";x.font="12px system-ui";x.fillText("0",4,h-5);x.fillText(fmt(data.allowance),4,14);
+}
+(async()=>{data=await load();readDate.value="2026-08-27";await save();render();if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})})();
+</script></body></html>
